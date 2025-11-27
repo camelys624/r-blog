@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Note model: Individual blog posts/articles
+model Note {
+  id        String   @id @default(cuid())
+  title     String   @db.VarChar(200)
+  content   String   @db.Text
+  slug      String   @unique @db.VarChar(255)
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  topics    NoteTopic[]
+
+  @@index([published])
+  @@index([deletedAt])
+  @@index([slug])
+}
+
+// Topic model: Categories/tags for organizing content
+model Topic {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(255)
+  description String?  @db.Text
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Self-referential relationship for hierarchical topics
+  parent   Topic?      @relation("TopicHierarchy", fields: [parentId], references: [id])
+  children Topic[]     @relation("TopicHierarchy")
+
+  // Relations
+  notes    NoteTopic[]
+
+  @@index([slug])
+  @@index([parentId])
+}
+
+// Project model: Portfolio items
+model Project {
+  id          String        @id @default(cuid())
+  title       String        @db.VarChar(200)
+  description String?       @db.VarChar(500)
+  content     String?       @db.Text
+  url         String?       @db.VarChar(500)
+  imageUrl    String?       @db.VarChar(500)
+  status      ProjectStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+}
+
+// Join table for Note-Topic many-to-many relationship
+model NoteTopic {
+  noteId    String
+  topicId   String
+  createdAt DateTime @default(now())
+
+  note  Note  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, topicId])
+  @@index([noteId])
+  @@index([topicId])
+}
+
+// Enum for Project status
+enum ProjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
