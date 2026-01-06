@@ -138,3 +138,190 @@ openspec/specs/
 - 规范文档保证项目的可维护性
 
 技术栈：TanStack Start + React 19 + Prisma + Azure OpenAI
+
+---
+
+# 2026-01-06: 图床集成功能实现
+
+上次提到的"待优化项"今天全部完成！现在图片上传体验已经非常顺滑。
+
+## 新增文件
+
+### `src/lib/image-host.ts` - imgbb 图床客户端
+
+```typescript
+// 上传图片到 imgbb（支持 base64 或 File）
+export async function uploadImage(image: string | File, name?: string): Promise<string>
+
+// 从 URL 下载图片并上传（用于 DALL-E 临时图片）
+export async function uploadImageFromUrl(imageUrl: string, name?: string): Promise<string>
+```
+
+核心逻辑是将图片转为 base64，通过 FormData 发送到 imgbb API：
+
+```typescript
+const formData = new FormData()
+formData.append('key', apiKey)
+formData.append('image', base64)
+
+const response = await fetch('https://api.imgbb.com/1/upload', {
+  method: 'POST',
+  body: formData,
+})
+```
+
+### `src/lib/upload.api.ts` - 服务端上传接口
+
+使用 TanStack Start 的 Server Function，保护 API Key 不暴露到客户端：
+
+```typescript
+export const uploadImageToHost = createServerFn({ method: 'POST' }).handler(
+  async (ctx) => {
+    const data = ctx.data as unknown as UploadImageInput
+    const url = await uploadImage(data.imageBase64, data.name)
+    return { url }
+  }
+)
+```
+
+## 修改文件
+
+### `src/lib/ai.ts` - AI 封面图永久化
+
+DALL-E 生成的图片现在会自动上传到 imgbb：
+
+```typescript
+const tempImageUrl = imageResponse.data?.[0]?.url
+
+// 上传到 imgbb 获取永久 URL
+try {
+  const permanentUrl = await uploadImageFromUrl(tempImageUrl, `cover-${Date.now()}`)
+  return permanentUrl
+} catch (uploadError) {
+  // 上传失败时回退到临时 URL
+  console.warn('封面图片上传到图床失败，使用临时 URL:', uploadError)
+  return tempImageUrl
+}
+```
+
+### `src/routes/editor.tsx` - 编辑器图片粘贴/拖放
+
+新增三个事件处理函数：
+
+```typescript
+// 粘贴图片
+const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+  const items = e.clipboardData?.items
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault()
+      const file = item.getAsFile()
+      if (file) await uploadAndInsertImage(file)
+      break
+    }
+  }
+}
+
+// 拖拽悬停
+const handleDragOver = (e: DragEvent<HTMLTextAreaElement>) => {
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+// 拖放图片
+const handleDrop = async (e: DragEvent<HTMLTextAreaElement>) => {
+  e.preventDefault()
+  const files = e.dataTransfer?.files
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      await uploadAndInsertImage(file)
+    }
+  }
+}
+```
+
+上传后自动在光标位置插入 Markdown 图片语法：
+
+```typescript
+insertTextAtCursor(`![${imageName}](${result.url})\n`)
+```
+
+## 功能测试清单
+
+| 测试项 | 操作 | 预期结果 |
+|--------|------|----------|
+| 粘贴图片 | 复制图片后 Ctrl+V | 显示上传 toast，完成后插入 `![name](url)` |
+| 拖放单张图片 | 拖拽图片到编辑区 | 自动上传并插入 Markdown |
+| 拖放多张图片 | 同时拖放多张 | 依次上传，分别插入 |
+| AI 封面生成 | 保存文章（不填封面） | 生成图片并上传到 imgbb |
+| 大文件限制 | 上传 >32MB 图片 | 显示大小限制错误 |
+| API Key 缺失 | 移除 IMGBB_API_KEY | 显示配置错误提示 |
+
+## 环境变量
+
+```env
+# 新增
+IMGBB_API_KEY=your_imgbb_api_key
+```
+
+## 技术要点
+
+1. **API Key 安全**：通过 Server Function 代理上传，客户端不接触密钥
+2. **优雅降级**：imgbb 上传失败时，AI 封面仍返回临时 URL
+3. **用户体验**：toast 通知上传进度，编辑区在上传时禁用防止误操作
+4. **文件校验**：检查 MIME 类型和文件大小（32MB 限制）
+
+至此，"待优化项"中的两个功能已全部实现：
+- ✅ 图片存储问题 → imgbb 图床集成
+- ✅ 编辑器图片粘贴 → 粘贴 + 拖放双支持
+
+---
+
+## Bug 修复：AI 封面图未上传到 imgbb
+
+### 问题描述
+AI 生成的封面图没有上传到 imgbb，仍然使用 DALL-E 返回的临时 URL。
+
+### 原因分析
+`src/lib/image-host.ts` 中的 `uploadImageFromUrl` 函数使用了 `FileReader` API，这是浏览器专用 API。但该函数在服务端（TanStack Start Server Function）运行，Node.js 环境没有 `FileReader`，导致静默失败。
+
+### 解决方案
+将 `blobToBase64` 改为使用 Node.js 兼容的 `Buffer` API：
+
+```typescript
+// 修复前（浏览器专用，服务端不可用）
+const blob = await imageResponse.blob()
+const base64 = await blobToBase64(blob)  // FileReader 在 Node.js 不存在
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()  // ❌ Node.js 没有 FileReader
+    reader.onload = () => {
+      const result = reader.result as string
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+// 修复后（Node.js 兼容）
+const arrayBuffer = await imageResponse.arrayBuffer()
+const base64 = Buffer.from(arrayBuffer).toString('base64')  // ✅ Node.js 原生支持
+```
+
+### 修改文件
+- `src/lib/image-host.ts`：重写 `uploadImageFromUrl` 函数，使用 `Buffer.from().toString('base64')`
+- `src/lib/ai.ts`：添加调试日志输出
+
+### 验证方法
+1. 保存一篇新文章（不填封面图）
+2. 查看服务端控制台日志：
+   ```
+   开始上传封面图到 imgbb...
+   封面图上传成功: https://i.ibb.co/xxx/cover-xxx.png
+   ```
+3. 检查数据库中 `coverImage` 字段是否为 `i.ibb.co` 域名
+
+

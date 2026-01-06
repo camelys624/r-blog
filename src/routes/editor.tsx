@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import type { KeyboardEvent, UIEvent } from 'react'
+import type { KeyboardEvent, UIEvent, ClipboardEvent, DragEvent } from 'react'
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { MarkdownPreview } from '@/components/markdown-preview'
 import { createPost } from '@/lib/post.api'
+import { uploadImageToHost } from '@/lib/upload.api'
 
 export const Route = createFileRoute('/editor')({
   component: Editor,
@@ -24,6 +25,7 @@ function Editor() {
   const [content, setContent] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   // 滚动同步相关的 refs
   const editorRef = useRef<HTMLTextAreaElement>(null)
@@ -32,6 +34,116 @@ function Editor() {
 
   // 从内容中提取标题
   const extractedTitle = useMemo(() => extractTitle(content), [content])
+
+  // 将 File 转换为 base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // 移除 data:image/xxx;base64, 前缀
+        const base64 = result.split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // 在光标位置插入文本
+  const insertTextAtCursor = (text: string) => {
+    const textarea = editorRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const newContent = content.substring(0, start) + text + content.substring(end)
+    setContent(newContent)
+
+    // 设置光标位置到插入文本之后
+    requestAnimationFrame(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + text.length
+      textarea.focus()
+    })
+  }
+
+  // 上传图片并插入 Markdown 语法
+  const uploadAndInsertImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('只支持上传图片文件')
+      return
+    }
+
+    // 检查文件大小（imgbb 限制 32MB）
+    if (file.size > 32 * 1024 * 1024) {
+      toast.error('图片大小不能超过 32MB')
+      return
+    }
+
+    setIsUploading(true)
+    const loadingToast = toast.loading('正在上传图片...')
+
+    try {
+      const base64 = await fileToBase64(file)
+      const result = await uploadImageToHost({
+        data: {
+          imageBase64: base64,
+          name: file.name.replace(/\.[^/.]+$/, ''), // 移除扩展名
+        },
+      })
+
+      // 插入 Markdown 图片语法
+      const imageName = file.name.replace(/\.[^/.]+$/, '') || 'image'
+      insertTextAtCursor(`![${imageName}](${result.url})\n`)
+
+      toast.dismiss(loadingToast)
+      toast.success('图片上传成功')
+    } catch (error) {
+      toast.dismiss(loadingToast)
+      toast.error(error instanceof Error ? error.message : '图片上传失败')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  // 处理粘贴事件
+  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) {
+          await uploadAndInsertImage(file)
+        }
+        break
+      }
+    }
+  }
+
+  // 处理拖拽悬停
+  const handleDragOver = (e: DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  // 处理拖放
+  const handleDrop = async (e: DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const files = e.dataTransfer?.files
+    if (!files || files.length === 0) return
+
+    // 上传所有图片文件
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        await uploadAndInsertImage(file)
+      }
+    }
+  }
 
   // 同步滚动处理
   const handleEditorScroll = useCallback((e: UIEvent<HTMLTextAreaElement>) => {
@@ -152,7 +264,12 @@ function Editor() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* 编辑区 */}
           <div className="space-y-2">
-            <Label htmlFor="content">编辑 (Markdown + HTML)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="content">编辑 (Markdown + HTML)</Label>
+              {isUploading && (
+                <span className="text-xs text-muted-foreground">上传中...</span>
+              )}
+            </div>
             <Textarea
               ref={editorRef}
               id="content"
@@ -160,9 +277,12 @@ function Editor() {
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleKeyDown}
               onScroll={handleEditorScroll}
-              placeholder="# 文章标题&#10;&#10;在这里开始写作..."
+              onPaste={handlePaste}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              placeholder="# 文章标题&#10;&#10;在这里开始写作...&#10;&#10;提示：可直接粘贴或拖放图片"
               className="h-[calc(100vh-320px)] min-h-96 font-mono text-sm resize-none"
-              disabled={isSaving}
+              disabled={isSaving || isUploading}
             />
           </div>
 

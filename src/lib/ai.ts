@@ -1,4 +1,5 @@
 import { AzureOpenAI } from 'openai'
+import { uploadImageFromUrl } from './image-host'
 
 // Azure OpenAI 客户端配置
 const client = new AzureOpenAI({
@@ -50,13 +51,26 @@ export async function generateCoverImage(title: string, content: string): Promis
     quality: 'standard',
   })
 
-  const imageUrl = imageResponse.data?.[0]?.url
+  const tempImageUrl = imageResponse.data?.[0]?.url
 
-  if (!imageUrl) {
+  if (!tempImageUrl) {
     throw new Error('Failed to generate cover image')
   }
 
-  return imageUrl
+  // 上传到 imgbb 获取永久 URL
+  try {
+    console.log('开始上传封面图到 imgbb...')
+    const permanentUrl = await uploadImageFromUrl(
+      tempImageUrl,
+      `cover-${Date.now()}`
+    )
+    console.log('封面图上传成功:', permanentUrl)
+    return permanentUrl
+  } catch (uploadError) {
+    // 如果上传失败，返回临时 URL 并记录警告
+    console.error('封面图片上传到图床失败:', uploadError)
+    return tempImageUrl
+  }
 }
 
 /**
