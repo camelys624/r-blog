@@ -94,7 +94,7 @@ function PostDetail() {
         {post.coverImage && (
           <img
             src={post.coverImage}
-            className="w-full rounded-3xl mb-12"
+            className="w-full rounded-3xl mb-12 h-[500px] object-cover"
             alt={post.title}
           />
         )}
