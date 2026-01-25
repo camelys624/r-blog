@@ -17,6 +17,7 @@ model User {
   role      UserRole  @default(USER)
   accounts  Account[]
   sessions  Session[]
+  apiKeys   ApiKey[]
   posts     Post[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -50,6 +51,20 @@ model Session {
   createdAt    DateTime @default(now())
 
   @@index([userId])
+}
+
+model ApiKey {
+  id        String    @id @default(cuid())
+  name      String    // API Key 名称，便于识别
+  key       String    @unique // sk_xxxxxxxx 格式
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastUsedAt DateTime?
+  expiresAt DateTime? // null 表示永不过期
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([key])
 }
 
 enum UserRole {

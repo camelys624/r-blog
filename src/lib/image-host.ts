@@ -5,6 +5,16 @@
 
 const IMGBB_API_URL = 'https://api.imgbb.com/1/upload'
 
+// 将 ArrayBuffer 转换为 base64（兼容浏览器和 Node.js）
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
 interface ImgbbResponse {
   success: boolean
   status: number
@@ -94,9 +104,9 @@ export async function uploadImageFromUrl(
     throw new Error(`下载图片失败: HTTP ${imageResponse.status}`)
   }
 
-  // 使用 arrayBuffer 转换为 base64（Node.js 兼容）
+  // 转换为 base64
   const arrayBuffer = await imageResponse.arrayBuffer()
-  const base64 = Buffer.from(arrayBuffer).toString('base64')
+  const base64 = arrayBufferToBase64(arrayBuffer)
 
   // 上传到 imgbb
   const formData = new FormData()

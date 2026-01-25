@@ -47,7 +47,7 @@ export async function generateCoverImage(title: string, content: string): Promis
     model: IMAGE_DEPLOYMENT,
     prompt: `${imagePrompt}. Style: modern, minimalist, professional blog cover, vibrant colors, no text.`,
     n: 1,
-    size: '1792x1024',
+    size: '1024x1024',
     quality: 'standard',
   })
 

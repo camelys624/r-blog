@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PostsSlugRouteImport } from './routes/posts.$slug'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as ApiPostsRouteImport } from './routes/api.posts'
 
 const EditorRoute = EditorRouteImport.update({
   id: '/editor',
@@ -40,11 +41,17 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPostsRoute = ApiPostsRouteImport.update({
+  id: '/api/posts',
+  path: '/api/posts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/editor': typeof EditorRoute
+  '/api/posts': typeof ApiPostsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/posts/$slug': typeof PostsSlugRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/editor': typeof EditorRoute
+  '/api/posts': typeof ApiPostsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/posts/$slug': typeof PostsSlugRoute
 }
@@ -60,19 +68,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/editor': typeof EditorRoute
+  '/api/posts': typeof ApiPostsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/posts/$slug': typeof PostsSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/editor' | '/auth/callback' | '/posts/$slug'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/editor'
+    | '/api/posts'
+    | '/auth/callback'
+    | '/posts/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/editor' | '/auth/callback' | '/posts/$slug'
+  to:
+    | '/'
+    | '/admin'
+    | '/editor'
+    | '/api/posts'
+    | '/auth/callback'
+    | '/posts/$slug'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/editor'
+    | '/api/posts'
     | '/auth/callback'
     | '/posts/$slug'
   fileRoutesById: FileRoutesById
@@ -81,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   EditorRoute: typeof EditorRoute
+  ApiPostsRoute: typeof ApiPostsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   PostsSlugRoute: typeof PostsSlugRoute
 }
@@ -122,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/posts': {
+      id: '/api/posts'
+      path: '/api/posts'
+      fullPath: '/api/posts'
+      preLoaderRoute: typeof ApiPostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -129,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   EditorRoute: EditorRoute,
+  ApiPostsRoute: ApiPostsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   PostsSlugRoute: PostsSlugRoute,
 }

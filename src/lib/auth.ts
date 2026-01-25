@@ -1,14 +1,15 @@
 import { createServerFn } from '@tanstack/react-start'
-import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
-import pg from 'pg'
+import type { PrismaClient } from '@prisma/client'
 
 // Prisma 单例
 let prismaInstance: PrismaClient | null = null
 
-function getPrisma() {
+async function getPrisma(): Promise<PrismaClient> {
   if (!prismaInstance) {
-    const pool = new pg.Pool({
+    const { PrismaClient } = await import('@prisma/client')
+    const { PrismaPg } = await import('@prisma/adapter-pg')
+    const pg = await import('pg')
+    const pool = new pg.default.Pool({
       connectionString: process.env.DATABASE_URL,
     })
     const adapter = new PrismaPg(pool)
@@ -100,7 +101,7 @@ export const handleGitHubCallback = createServerFn({ method: 'POST' }).handler(
     const emails = await emailsResponse.json()
     const primaryEmail = emails.find((e: { primary: boolean }) => e.primary)?.email || githubUser.email
 
-    const prisma = getPrisma()
+    const prisma = await getPrisma()
 
     // 查找或创建用户
     let account = await prisma.account.findUnique({
@@ -181,7 +182,7 @@ export const getCurrentUser = createServerFn({ method: 'POST' }).handler(
       return null
     }
 
-    const prisma = getPrisma()
+    const prisma = await getPrisma()
 
     const session = await prisma.session.findUnique({
       where: { sessionToken },
@@ -207,7 +208,7 @@ export const logout = createServerFn({ method: 'POST' }).handler(async (ctx) => 
   const { sessionToken } = ctx.data as { sessionToken: string }
 
   if (sessionToken) {
-    const prisma = getPrisma()
+    const prisma = await getPrisma()
     await prisma.session.delete({
       where: { sessionToken },
     }).catch(() => {

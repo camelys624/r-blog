@@ -22,6 +22,14 @@ function extractTitle(content: string): string | null {
   return match ? match[1].trim() : null
 }
 
+function getCookie(name: string): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop()?.split(';').shift()
+  return undefined
+}
+
 function Editor() {
   const navigate = useNavigate()
   const [content, setContent] = useState('')
@@ -33,15 +41,6 @@ function Editor() {
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading')
 
   useEffect(() => {
-    // 从 cookie 读取 session token
-    const getCookie = (name: string): string | undefined => {
-      if (typeof document === 'undefined') return undefined
-      const value = `; ${document.cookie}`
-      const parts = value.split(`; ${name}=`)
-      if (parts.length === 2) return parts.pop()?.split(';').shift()
-      return undefined
-    }
-
     const sessionToken = getCookie('session_token')
     if (!sessionToken) {
       setAuthStatus('unauthorized')
@@ -230,11 +229,13 @@ function Editor() {
 
     setIsSaving(true)
     try {
+      const sessionToken = getCookie('session_token')
       await createPost({
         data: {
           content: content.trim(),
           coverImage: coverImage.trim() || undefined,
           status: 'DRAFT',
+          sessionToken,
         },
       })
       toast.success('文章保存成功！')
