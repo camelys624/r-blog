@@ -146,3 +146,76 @@ The system SHALL automatically manage Category and Tag records:
 - **THEN** the system finds the existing Tag record
 - **AND** connects it to the new post without creating duplicate
 
+### Requirement: AI Cover Image Generation
+The system SHALL generate cover images using Azure OpenAI DALL-E:
+- Generate image prompt from article title and content using GPT
+- Create 1024x1024 image with DALL-E 3 (standard quality)
+- Upload generated image to imgbb for permanent hosting
+- Fall back to temporary URL if upload fails
+
+#### Scenario: Generate cover image
+- **WHEN** user saves a post without providing cover image URL
+- **THEN** the system generates an image prompt using GPT
+- **AND** creates image using DALL-E 3 at 1024x1024 resolution
+- **AND** uploads to imgbb for permanent storage
+- **AND** stores the permanent URL in the post
+
+#### Scenario: Use provided cover image
+- **WHEN** user provides a cover image URL
+- **THEN** the system uses the provided URL directly
+- **AND** skips AI image generation
+
+### Requirement: AI Summary Generation
+The system SHALL generate summaries using Azure OpenAI GPT:
+- Analyze first 3000 characters of content
+- Generate 100-150 character Chinese summary
+- Summarize core points to attract readers
+
+#### Scenario: Generate summary
+- **WHEN** user saves a post
+- **THEN** the system generates a concise summary using AI
+- **AND** stores the summary in the post record
+
+### Requirement: Image Upload in Editor
+The system SHALL support image upload within the editor:
+- Paste images directly from clipboard
+- Drag and drop image files
+- Convert to base64 and upload to imgbb
+- Insert markdown image syntax at cursor position
+
+#### Scenario: Paste image
+- **WHEN** user pastes an image from clipboard
+- **THEN** the system extracts the image data
+- **AND** uploads to imgbb image host
+- **AND** inserts `![image](url)` at cursor position
+
+#### Scenario: Drag and drop image
+- **WHEN** user drags an image file into the editor
+- **THEN** the system uploads the file to imgbb
+- **AND** inserts markdown image syntax at cursor position
+
+### Requirement: Programmatic Post Creation
+The system SHALL support creating posts via API for external tools:
+- HTTP endpoint: `POST /api/posts`
+- Authentication via API Key
+- Same AI processing as web interface (metadata, summary, cover image)
+- Returns created post object
+
+#### Scenario: Create post via API
+- **WHEN** external tool sends POST request with API Key and content
+- **THEN** the system authenticates the API Key
+- **AND** processes content with AI (metadata, summary, cover)
+- **AND** creates the post in database
+- **AND** returns the created post object
+
+### Requirement: Core Function Export
+The system SHALL export a `createPostCore` function for direct use:
+- Bypasses server function wrapper
+- Can be called from scripts or API routes
+- Same authentication and processing logic
+
+#### Scenario: Use createPostCore in script
+- **WHEN** a script imports and calls createPostCore
+- **THEN** the function authenticates and creates post
+- **AND** returns the created post object directly
+

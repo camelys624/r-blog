@@ -147,3 +147,89 @@ The following environment variables are required:
 - `GITHUB_CLIENT_ID`: GitHub OAuth App client ID
 - `GITHUB_CLIENT_SECRET`: GitHub OAuth App client secret
 - `GITHUB_REDIRECT_URI`: OAuth callback URL (default: http://localhost:3000/auth/callback)
+
+## API Key Authentication
+
+### Requirement: API Key Data Model
+The system SHALL provide an ApiKey model to support programmatic API access:
+- Unique identifier (CUID)
+- Name (string, for identifying the key's purpose)
+- Key (string, unique, format: `sk_` + 48 random hex characters)
+- User reference (foreign key)
+- Last used timestamp (optional)
+- Expiration timestamp (optional, null means never expires)
+- Creation timestamp
+
+#### Scenario: Generate API Key format
+- **WHEN** a new API Key is created
+- **THEN** the system generates a 48-character random hex string
+- **AND** prefixes it with `sk_` for identification
+
+### Requirement: API Key Management
+The system SHALL provide CRUD operations for API Keys:
+- Create: Generate new key with name and optional expiration
+- List: Show user's keys with masked display (sk_xxx...xxxx)
+- Delete: Remove key permanently
+- Validate: Check key exists, not expired, and return associated user
+
+#### Scenario: Create API Key
+- **WHEN** admin creates a new API Key
+- **THEN** the system generates a unique key
+- **AND** displays the full key once (never shown again)
+- **AND** stores the key in database
+
+#### Scenario: List API Keys
+- **WHEN** admin views API Key list
+- **THEN** the system shows key name, masked key, created date, last used date
+- **AND** keys are masked as `sk_xxxx...xxxx` (first 7 + last 4 characters)
+
+#### Scenario: Delete API Key
+- **WHEN** admin deletes an API Key
+- **THEN** the system removes the key from database
+- **AND** any requests using that key will fail
+
+### Requirement: Dual Authentication Support
+The system SHALL support both API Key and Session Token authentication for post creation:
+- API Key: For programmatic access (scripts, CI/CD, external tools)
+- Session Token: For web interface access
+- API Key takes precedence if both are provided
+
+#### Scenario: Authenticate with API Key
+- **WHEN** a request includes `apiKey` parameter
+- **THEN** the system validates the key exists and is not expired
+- **AND** verifies the associated user has ADMIN role
+- **AND** allows the operation if valid
+
+#### Scenario: Authenticate with Session
+- **WHEN** a request includes `sessionToken` parameter (no API Key)
+- **THEN** the system validates the session exists and is not expired
+- **AND** verifies the associated user has ADMIN role
+- **AND** allows the operation if valid
+
+### Requirement: HTTP API Endpoint
+The system SHALL provide an HTTP API endpoint for external access:
+- Endpoint: `POST /api/posts`
+- Content-Type: `application/json`
+- Request body: `{ apiKey, content, status?, coverImage? }`
+- Response: Created post object or error message
+
+#### Scenario: Create post via API
+- **GIVEN** a valid API Key
+- **WHEN** client sends POST request to `/api/posts`
+- **THEN** the system authenticates using the API Key
+- **AND** creates the post with AI-generated metadata
+- **AND** returns the created post object
+
+#### Scenario: API authentication failure
+- **GIVEN** an invalid or expired API Key
+- **WHEN** client sends POST request to `/api/posts`
+- **THEN** the system returns 400 error with message
+
+### Requirement: API Key Management UI
+The system SHALL provide a management interface in the admin panel:
+- Tab navigation between "文章管理" and "API Key"
+- Form to create new key with name input
+- Display newly created key with copy button
+- Warning that key is only shown once
+- Table listing existing keys with delete action
+- Usage instructions with curl example
