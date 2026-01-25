@@ -1,12 +1,20 @@
-import { AzureOpenAI } from 'openai'
+import type { AzureOpenAI } from 'openai'
 import { uploadImageFromUrl } from './image-host'
 
-// Azure OpenAI 客户端配置
-const client = new AzureOpenAI({
-  endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-  apiKey: process.env.AZURE_OPENAI_API_KEY,
-  apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview',
-})
+// Azure OpenAI 客户端单例
+let clientInstance: AzureOpenAI | null = null
+
+async function getClient(): Promise<AzureOpenAI> {
+  if (!clientInstance) {
+    const { AzureOpenAI } = await import('openai')
+    clientInstance = new AzureOpenAI({
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview',
+    })
+  }
+  return clientInstance
+}
 
 // Azure OpenAI 部署名称
 const CHAT_DEPLOYMENT = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4o-mini'
@@ -16,6 +24,8 @@ const IMAGE_DEPLOYMENT = process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT || 'dall-e-3'
  * 使用 Azure OpenAI DALL-E 生成文章封面图片
  */
 export async function generateCoverImage(title: string, content: string): Promise<string> {
+  const client = await getClient()
+
   // 截取内容前 500 字符用于生成提示词
   const truncatedContent = content.slice(0, 500)
 
@@ -77,6 +87,8 @@ export async function generateCoverImage(title: string, content: string): Promis
  * 使用 Azure OpenAI GPT 生成文章摘要
  */
 export async function generateSummary(title: string, content: string): Promise<string> {
+  const client = await getClient()
+
   // 截取内容前 3000 字符，避免 token 过多
   const truncatedContent = content.slice(0, 3000)
 
@@ -119,6 +131,8 @@ export interface PostMetadata {
  * 包括标题、分类和标签
  */
 export async function generateMetadata(content: string): Promise<PostMetadata> {
+  const client = await getClient()
+
   const truncatedContent = content.slice(0, 3000)
 
   const response = await client.chat.completions.create({
