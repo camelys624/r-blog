@@ -1,8 +1,26 @@
 # content-editing Specification
 
 ## Purpose
-TBD - created by archiving change add-markdown-editor. Update Purpose after archive.
+Provide a markdown editor for creating and editing blog posts with AI-powered metadata generation, restricted to admin users only.
+
 ## Requirements
+
+### Requirement: Admin-Only Access
+The system SHALL restrict editor access to admin users:
+- Check user session and role on editor page load
+- Display loading state while checking authentication
+- Show "无权访问" message for non-admin users
+- Redirect option to return to homepage
+
+#### Scenario: Admin accesses editor
+- **WHEN** an authenticated admin user navigates to /editor
+- **THEN** the system displays the editor interface
+
+#### Scenario: Non-admin accesses editor
+- **WHEN** a non-admin or unauthenticated user navigates to /editor
+- **THEN** the system displays access denied message
+- **AND** provides a button to return to homepage
+
 ### Requirement: Split-Pane Markdown Editor
 The system SHALL provide a split-pane editor interface that:
 - Displays a textarea on the left for raw markdown input
