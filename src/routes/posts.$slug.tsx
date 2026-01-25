@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getPostBySlug } from '@/lib/post.api'
 import { MarkdownPreview } from '@/components/markdown-preview'
-import { ArrowLeft, Clock, Share2, Search } from 'lucide-react'
+import { ArrowLeft, Clock, Share2 } from 'lucide-react'
+import { Header } from '@/components/header'
 
 export const Route = createFileRoute('/posts/$slug')({
   loader: async ({ params }) => {
@@ -36,38 +37,7 @@ function PostDetail() {
 
   return (
     <div className="min-h-screen bg-background font-sans antialiased">
-      {/* Header - 毛玻璃效果 */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-black tracking-tighter">
-            MIND<span className="text-accent">POST</span>
-          </Link>
-
-          <nav className="hidden md:flex items-center space-x-10 text-sm font-medium text-muted-foreground">
-            <Link to="/" className="hover:text-accent transition">
-              首页
-            </Link>
-            <a href="#" className="hover:text-accent transition">
-              分类
-            </a>
-            <a href="#" className="hover:text-accent transition">
-              关于
-            </a>
-          </nav>
-
-          <div className="flex items-center space-x-6">
-            <button className="p-2 text-muted-foreground hover:text-accent transition">
-              <Search className="w-5 h-5" />
-            </button>
-            <Link
-              to="/editor"
-              className="hidden md:block px-5 py-2.5 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-90 transition"
-            >
-              写文章
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Article */}
       <article className="max-w-4xl mx-auto px-6 py-12 min-h-[calc(100vh-140px)]">
@@ -94,11 +64,15 @@ function PostDetail() {
           {/* 作者信息栏 */}
           <div className="flex items-center justify-between border-y border-border py-6">
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg font-medium">
-                {post.authorName.charAt(0)}
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg font-medium overflow-hidden">
+                {post.author?.image ? (
+                  <img src={post.author.image} alt={post.author.name || ''} className="w-full h-full object-cover" />
+                ) : (
+                  (post.author?.name || '匿名').charAt(0)
+                )}
               </div>
               <div>
-                <div className="font-bold text-foreground">{post.authorName}</div>
+                <div className="font-bold text-foreground">{post.author?.name || '匿名'}</div>
                 <div className="text-sm text-muted-foreground flex items-center space-x-2">
                   <span className="flex items-center">
                     <Clock className="w-3.5 h-3.5 mr-1" />

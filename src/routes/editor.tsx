@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import type { KeyboardEvent, UIEvent, ClipboardEvent, DragEvent } from 'react'
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { MarkdownPreview } from '@/components/markdown-preview'
 import { createPost } from '@/lib/post.api'
 import { uploadImageToHost } from '@/lib/upload.api'
+import { getCurrentUser } from '@/lib/auth'
+import { Loader2, ShieldAlert } from 'lucide-react'
 
 export const Route = createFileRoute('/editor')({
   component: Editor,
@@ -26,6 +28,38 @@ function Editor() {
   const [coverImage, setCoverImage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  // 权限检查状态
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading')
+
+  useEffect(() => {
+    // 从 cookie 读取 session token
+    const getCookie = (name: string): string | undefined => {
+      if (typeof document === 'undefined') return undefined
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; ${name}=`)
+      if (parts.length === 2) return parts.pop()?.split(';').shift()
+      return undefined
+    }
+
+    const sessionToken = getCookie('session_token')
+    if (!sessionToken) {
+      setAuthStatus('unauthorized')
+      return
+    }
+
+    getCurrentUser({ data: { sessionToken } })
+      .then((user) => {
+        if (user?.role === 'ADMIN') {
+          setAuthStatus('authorized')
+        } else {
+          setAuthStatus('unauthorized')
+        }
+      })
+      .catch(() => {
+        setAuthStatus('unauthorized')
+      })
+  }, [])
 
   // 滚动同步相关的 refs
   const editorRef = useRef<HTMLTextAreaElement>(null)
@@ -231,6 +265,36 @@ function Editor() {
         textarea.selectionStart = textarea.selectionEnd = start + 2
       })
     }
+  }
+
+  // 加载中状态
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-accent mx-auto mb-4" />
+          <p className="text-muted-foreground">验证权限中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 未授权状态
+  if (authStatus === 'unauthorized') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">无权访问</h1>
+          <p className="text-muted-foreground mb-6">
+            只有管理员才能编辑文章。请先登录管理员账号。
+          </p>
+          <Button onClick={() => navigate({ to: '/' })}>
+            返回首页
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (

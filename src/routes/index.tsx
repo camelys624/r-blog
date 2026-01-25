@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getPosts } from '@/lib/post.api'
-import { Clock, User, Search } from 'lucide-react'
+import { Clock, User } from 'lucide-react'
+import { Header } from '@/components/header'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
-    const posts = await getPosts()
+    const posts = await getPosts({ data: { status: 'PUBLISHED' } })
     return { posts }
   },
+  staleTime: 0,
   component: Index,
 })
 
@@ -29,38 +31,7 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background font-sans antialiased">
-      {/* Header - 毛玻璃效果 */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-black tracking-tighter">
-            MIND<span className="text-accent">POST</span>
-          </Link>
-
-          <nav className="hidden md:flex items-center space-x-10 text-sm font-medium text-muted-foreground">
-            <Link to="/" className="hover:text-accent transition">
-              首页
-            </Link>
-            <a href="#" className="hover:text-accent transition">
-              分类
-            </a>
-            <a href="#" className="hover:text-accent transition">
-              关于
-            </a>
-          </nav>
-
-          <div className="flex items-center space-x-6">
-            <button className="p-2 text-muted-foreground hover:text-accent transition">
-              <Search className="w-5 h-5" />
-            </button>
-            <Link
-              to="/editor"
-              className="hidden md:block px-5 py-2.5 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-90 transition"
-            >
-              写文章
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-12 min-h-[calc(100vh-140px)]">
@@ -100,7 +71,7 @@ function Index() {
                     </h2>
                     <div className="flex items-center text-gray-300 text-sm space-x-4">
                       <span className="flex items-center">
-                        <User className="w-4 h-4 mr-2" /> {heroPost.authorName}
+                        <User className="w-4 h-4 mr-2" /> {heroPost.author?.name || '匿名'}
                       </span>
                       <span className="flex items-center">
                         <Clock className="w-4 h-4 mr-2" />{' '}
@@ -153,7 +124,7 @@ function Index() {
                         <div className="flex items-center pt-2 text-sm text-muted-foreground">
                           <span>{formatDate(post.createdAt.toString())}</span>
                           <span className="mx-2">·</span>
-                          <span>{post.authorName}</span>
+                          <span>{post.author?.name || '匿名'}</span>
                         </div>
                       </div>
                     </Link>

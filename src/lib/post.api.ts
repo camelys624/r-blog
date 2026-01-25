@@ -137,14 +137,18 @@ export const createPost = createServerFn({ method: 'POST' })
     return post
   })
 
-export const getPosts = createServerFn({ method: 'GET' })
-  .handler(async () => {
+export const getPosts = createServerFn({ method: 'POST' })
+  .handler(async (ctx) => {
+    const data = ctx.data as { status?: 'DRAFT' | 'PUBLISHED' | 'ALL' } | undefined
+    const status = data?.status
     const prisma = getPrisma()
 
     const posts = await prisma.post.findMany({
+      where: status && status !== 'ALL' ? { status } : undefined,
       orderBy: { createdAt: 'desc' },
-      include: { category: true, tags: true },
+      include: { category: true, tags: true, author: true },
     })
+
     return posts
   })
 
@@ -160,7 +164,7 @@ export const getPostBySlug = createServerFn({ method: 'GET' })
 
     const post = await prisma.post.findUnique({
       where: { slug },
-      include: { category: true, tags: true },
+      include: { category: true, tags: true, author: true },
     })
 
     if (!post) {
@@ -169,3 +173,75 @@ export const getPostBySlug = createServerFn({ method: 'GET' })
 
     return post
   })
+
+// 删除文章
+export const deletePost = createServerFn({ method: 'POST' }).handler(
+  async (ctx) => {
+    const { id } = ctx.data as { id: string }
+
+    if (!id) {
+      throw new Error('文章 ID 不能为空')
+    }
+
+    const prisma = getPrisma()
+
+    await prisma.post.update({
+      where: { id },
+      data: { tags: { set: [] } },
+    })
+
+    await prisma.post.delete({
+      where: { id },
+    })
+
+    return { success: true }
+  }
+)
+
+// 更新文章状态
+export const updatePostStatus = createServerFn({ method: 'POST' }).handler(
+  async (ctx) => {
+    const { id, status } = ctx.data as { id: string; status: 'DRAFT' | 'PUBLISHED' }
+
+    if (!id) {
+      throw new Error('文章 ID 不能为空')
+    }
+
+    const prisma = getPrisma()
+
+    const post = await prisma.post.update({
+      where: { id },
+      data: {
+        status,
+        publishedAt: status === 'PUBLISHED' ? new Date() : null,
+      },
+      include: { category: true, tags: true, author: true },
+    })
+
+    return post
+  }
+)
+
+// 获取文章详情（通过 ID）
+export const getPostById = createServerFn({ method: 'GET' }).handler(
+  async (ctx) => {
+    const id = ctx.data as unknown as string
+
+    if (!id) {
+      throw new Error('文章 ID 不能为空')
+    }
+
+    const prisma = getPrisma()
+
+    const post = await prisma.post.findUnique({
+      where: { id },
+      include: { category: true, tags: true, author: true },
+    })
+
+    if (!post) {
+      throw new Error('文章不存在')
+    }
+
+    return post
+  }
+)
