@@ -7,12 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { MarkdownPreview } from '@/components/markdown-preview'
-import { createPost } from '@/lib/post.api'
+import { createPost, updatePost, getPostById } from '@/lib/post.api'
 import { uploadImageToHost } from '@/lib/upload.api'
 import { getCurrentUser } from '@/lib/auth'
 import { Loader2, ShieldAlert } from 'lucide-react'
 
 export const Route = createFileRoute('/editor')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    id: (search.id as string) || undefined,
+  }),
   component: Editor,
 })
 
@@ -32,10 +35,14 @@ function getCookie(name: string): string | undefined {
 
 function Editor() {
   const navigate = useNavigate()
+  const { id: editId } = Route.useSearch()
+  const isEditMode = !!editId
+
   const [content, setContent] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isLoadingPost, setIsLoadingPost] = useState(false)
 
   // 权限检查状态
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading')
@@ -59,6 +66,25 @@ function Editor() {
         setAuthStatus('unauthorized')
       })
   }, [])
+
+  // 加载文章数据（编辑模式）
+  useEffect(() => {
+    if (authStatus === 'authorized' && editId) {
+      setIsLoadingPost(true)
+      getPostById({ data: editId })
+        .then((post) => {
+          setContent(post.content)
+          setCoverImage(post.coverImage || '')
+        })
+        .catch((error) => {
+          toast.error('加载文章失败: ' + (error instanceof Error ? error.message : '未知错误'))
+          navigate({ to: '/admin' })
+        })
+        .finally(() => {
+          setIsLoadingPost(false)
+        })
+    }
+  }, [authStatus, editId, navigate])
 
   // 滚动同步相关的 refs
   const editorRef = useRef<HTMLTextAreaElement>(null)
@@ -230,17 +256,33 @@ function Editor() {
     setIsSaving(true)
     try {
       const sessionToken = getCookie('session_token')
-      await createPost({
-        data: {
-          content: content.trim(),
-          coverImage: coverImage.trim() || undefined,
-          status: 'DRAFT',
-          sessionToken,
-        },
-      })
-      toast.success('文章保存成功！')
-      setContent('')
-      setCoverImage('')
+
+      if (isEditMode && editId) {
+        // 编辑模式：更新文章
+        await updatePost({
+          data: {
+            id: editId,
+            content: content.trim(),
+            coverImage: coverImage.trim() || undefined,
+            sessionToken,
+          },
+        })
+        toast.success('文章更新成功！')
+        navigate({ to: '/admin' })
+      } else {
+        // 创建模式：新建文章
+        await createPost({
+          data: {
+            content: content.trim(),
+            coverImage: coverImage.trim() || undefined,
+            status: 'DRAFT',
+            sessionToken,
+          },
+        })
+        toast.success('文章保存成功！')
+        setContent('')
+        setCoverImage('')
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '保存失败，请重试')
     } finally {
@@ -249,7 +291,7 @@ function Editor() {
   }
 
   const handleCancel = () => {
-    navigate({ to: '/' })
+    navigate({ to: isEditMode ? '/admin' : '/' })
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -269,12 +311,14 @@ function Editor() {
   }
 
   // 加载中状态
-  if (authStatus === 'loading') {
+  if (authStatus === 'loading' || isLoadingPost) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 animate-spin text-accent mx-auto mb-4" />
-          <p className="text-muted-foreground">验证权限中...</p>
+          <p className="text-muted-foreground">
+            {isLoadingPost ? '加载文章中...' : '验证权限中...'}
+          </p>
         </div>
       </div>
     )
@@ -304,7 +348,7 @@ function Editor() {
         {/* 标题栏 */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold">编辑文章</h1>
+            <h1 className="text-3xl font-bold">{isEditMode ? '编辑文章' : '写文章'}</h1>
             {extractedTitle ? (
               <p className="text-muted-foreground">
                 标题: <span className="text-foreground font-medium">{extractedTitle}</span>
@@ -320,7 +364,7 @@ function Editor() {
               取消
             </Button>
             <Button onClick={handleSave} disabled={isSaving || !extractedTitle}>
-              {isSaving ? '保存中...' : '保存文章'}
+              {isSaving ? '保存中...' : isEditMode ? '更新文章' : '保存文章'}
             </Button>
           </div>
         </div>

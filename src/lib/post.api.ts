@@ -269,6 +269,62 @@ export const updatePostStatus = createServerFn({ method: 'POST' }).handler(
   }
 )
 
+// 更新文章内容
+export const updatePost = createServerFn({ method: 'POST' }).handler(
+  async (ctx) => {
+    const { id, content, coverImage, sessionToken } = ctx.data as {
+      id: string
+      content: string
+      coverImage?: string
+      sessionToken?: string
+    }
+
+    if (!id) {
+      throw new Error('文章 ID 不能为空')
+    }
+
+    if (!content?.trim()) {
+      throw new Error('内容不能为空')
+    }
+
+    // 验证权限
+    const prisma = await getPrisma()
+
+    if (!sessionToken) {
+      throw new Error('需要登录')
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { sessionToken },
+      include: { user: true },
+    })
+
+    if (!session || session.expires < new Date()) {
+      throw new Error('未登录或会话已过期')
+    }
+
+    if (session.user.role !== 'ADMIN') {
+      throw new Error('无权限执行此操作')
+    }
+
+    // 从内容提取标题
+    const titleMatch = content.match(/^#\s+(.+)$/m)
+    const title = titleMatch ? titleMatch[1].trim() : undefined
+
+    const post = await prisma.post.update({
+      where: { id },
+      data: {
+        content: content.trim(),
+        ...(title && { title }),
+        ...(coverImage !== undefined && { coverImage: coverImage || null }),
+      },
+      include: { category: true, tags: true, author: true },
+    })
+
+    return post
+  }
+)
+
 // 获取文章详情（通过 ID）
 export const getPostById = createServerFn({ method: 'GET' }).handler(
   async (ctx) => {

@@ -12,7 +12,7 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  ExternalLink,
+  Pencil,
   Plus,
   Key,
   Copy,
@@ -334,12 +334,12 @@ function AdminPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
                             <Link
-                              to="/posts/$slug"
-                              params={{ slug: post.slug }}
+                              to="/editor"
+                              search={{ id: post.id }}
                               className="p-2 text-muted-foreground hover:text-foreground transition"
-                              title="查看文章"
+                              title="编辑文章"
                             >
-                              <ExternalLink className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </Link>
                             <button
                               onClick={() => handleToggleStatus(post.id, post.status)}
