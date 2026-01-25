@@ -3,7 +3,7 @@ import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+import { duotoneLight } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 import { cn } from '@/lib/utils'
 
 interface MarkdownPreviewProps {
@@ -31,7 +31,7 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
       if (isCodeBlock) {
         return (
           <SyntaxHighlighter
-            style={oneDark}
+            style={duotoneLight}
             language={match?.[1] || 'text'}
             PreTag="div"
             className="rounded-lg !my-4"
