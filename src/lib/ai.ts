@@ -1,23 +1,22 @@
-import type { AzureOpenAI } from 'openai'
-import { uploadImageFromUrl } from './image-host'
+import type OpenAI from 'openai'
+import { uploadImage, uploadImageFromUrl } from './image-host'
 
-// Azure OpenAI 客户端单例
-let clientInstance: AzureOpenAI | null = null
+// 统一使用 OpenAI 客户端 + Azure AI Foundry /openai/v1/ 路由
+let clientInstance: OpenAI | null = null
 
-async function getClient(): Promise<AzureOpenAI> {
+async function getClient(): Promise<OpenAI> {
   if (!clientInstance) {
-    const { AzureOpenAI } = await import('openai')
-    clientInstance = new AzureOpenAI({
-      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+    const { default: OpenAI } = await import('openai')
+    clientInstance = new OpenAI({
+      baseURL: process.env.AZURE_OPENAI_ENDPOINT,
       apiKey: process.env.AZURE_OPENAI_API_KEY,
-      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview',
     })
   }
   return clientInstance
 }
 
 // Azure OpenAI 部署名称
-const CHAT_DEPLOYMENT = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4o-mini'
+const CHAT_DEPLOYMENT = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4.1'
 const IMAGE_DEPLOYMENT = process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT || 'FLUX.2-pro'
 
 /**
@@ -69,29 +68,30 @@ Rules:
   const imageResponse = await client.images.generate({
     model: IMAGE_DEPLOYMENT,
     prompt: `${imagePrompt} Blog cover image, high resolution, no text, no watermarks.`,
-    n: 1,
-    size: '1792x1024',
   })
 
-  const tempImageUrl = imageResponse.data?.[0]?.url
+  const imageData = imageResponse.data?.[0]
+  console.log('图片生成响应:', JSON.stringify({ url: imageData?.url, hasB64: !!imageData?.b64_json }))
 
-  if (!tempImageUrl) {
+  const b64 = imageData?.b64_json
+  const tempUrl = imageData?.url
+
+  if (!b64 && !tempUrl) {
     throw new Error('Failed to generate cover image')
   }
 
   // 上传到 imgbb 获取永久 URL
   try {
     console.log('开始上传封面图到 imgbb...')
-    const permanentUrl = await uploadImageFromUrl(
-      tempImageUrl,
-      `cover-${Date.now()}`
-    )
+    const permanentUrl = b64
+      ? await uploadImage(b64, `cover-${Date.now()}`)           // FLUX 返回 base64
+      : await uploadImageFromUrl(tempUrl!, `cover-${Date.now()}`) // DALL-E 返回 url
     console.log('封面图上传成功:', permanentUrl)
     return permanentUrl
   } catch (uploadError) {
-    // 如果上传失败，返回临时 URL 并记录警告
     console.error('封面图片上传到图床失败:', uploadError)
-    return tempImageUrl
+    if (tempUrl) return tempUrl
+    throw new Error('图片生成后上传失败且无临时 URL 可用')
   }
 }
 
