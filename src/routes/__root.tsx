@@ -5,6 +5,7 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { ThemeProvider } from 'next-themes'
 import { Toaster } from '@/components/ui/sonner'
 import appCss from '@/index.css?url'
 
@@ -31,14 +32,16 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
-        <TanStackRouterDevtools position="bottom-right" />
-        <Scripts />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
+          <TanStackRouterDevtools position="bottom-right" />
+          <Scripts />
+        </ThemeProvider>
       </body>
     </html>
   )

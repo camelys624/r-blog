@@ -18,7 +18,7 @@ async function getClient(): Promise<AzureOpenAI> {
 
 // Azure OpenAI 部署名称
 const CHAT_DEPLOYMENT = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4o-mini'
-const IMAGE_DEPLOYMENT = process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT || 'dall-e-3'
+const IMAGE_DEPLOYMENT = process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT || 'FLUX.2-pro'
 
 /**
  * 使用 Azure OpenAI DALL-E 生成文章封面图片
@@ -29,20 +29,33 @@ export async function generateCoverImage(title: string, content: string): Promis
   // 截取内容前 500 字符用于生成提示词
   const truncatedContent = content.slice(0, 500)
 
-  // 先用 GPT 生成图片描述
+  // 先用 GPT 生成图片描述（针对 FLUX 优化）
   const promptResponse = await client.chat.completions.create({
     model: CHAT_DEPLOYMENT,
     messages: [
       {
         role: 'system',
-        content: 'You are a creative art director. Based on the article title and content, create a concise image prompt (in English, max 100 words) for generating a blog cover image. The image should be modern, clean, and suitable for a tech/personal blog. Focus on abstract concepts, visual metaphors, or relevant imagery. Do not include any text in the image. Output only the prompt.',
+        content: `You are a creative art director specializing in editorial photography and digital art. Based on the article title and content, write a detailed image generation prompt in English (max 150 words) optimized for FLUX image models.
+
+Structure your prompt with:
+1. Main subject or scene that visually represents the article's core idea
+2. Art style (e.g. cinematic photography, digital illustration, abstract art, editorial)
+3. Lighting and atmosphere (e.g. soft diffused light, dramatic shadows, golden hour)
+4. Color palette — 2–3 specific colors that match the article's emotional tone
+5. Composition (e.g. wide angle, shallow depth of field, symmetrical)
+
+Rules:
+- Use vivid, specific descriptors — avoid vague words like "nice" or "beautiful"
+- No text, labels, watermarks, or UI elements in the image
+- Optimized for a wide-format blog cover (landscape orientation)
+- Output only the prompt, no explanation or preamble`,
       },
       {
         role: 'user',
         content: `Title: ${title}\n\nContent: ${truncatedContent}`,
       },
     ],
-    max_tokens: 150,
+    max_tokens: 200,
     temperature: 0.8,
   })
 
@@ -52,13 +65,12 @@ export async function generateCoverImage(title: string, content: string): Promis
     throw new Error('Failed to generate image prompt')
   }
 
-  // 使用 DALL-E 生成图片
+  // 使用 FLUX.2-pro 生成图片
   const imageResponse = await client.images.generate({
     model: IMAGE_DEPLOYMENT,
-    prompt: `${imagePrompt}. Style: modern, minimalist, professional blog cover, vibrant colors, no text.`,
+    prompt: `${imagePrompt} Blog cover image, high resolution, no text, no watermarks.`,
     n: 1,
-    size: '1024x1024',
-    quality: 'standard',
+    size: '1792x1024',
   })
 
   const tempImageUrl = imageResponse.data?.[0]?.url

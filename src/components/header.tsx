@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Search, LogOut, User } from 'lucide-react'
+import { Search, LogOut, User, Moon, Sun, Menu, X } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { LoginModal } from './login-modal'
 import { getCurrentUser, logout } from '@/lib/auth'
 
@@ -29,6 +30,13 @@ export function Header() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const sessionToken = getCookie('session_token')
@@ -54,115 +62,234 @@ export function Header() {
   }
 
   const isAdmin = user?.role === 'ADMIN'
+  const isDark = resolvedTheme === 'dark'
+
+  const navLinks = [
+    { label: '首页', href: '/' as const, isRoute: true },
+    { label: '分类', href: '#', isRoute: false },
+    { label: '关于', href: '#', isRoute: false },
+  ]
 
   return (
     <>
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-black tracking-tighter">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          {/* Logo */}
+          <Link to="/" className="text-xl font-black tracking-tighter shrink-0">
             MIND<span className="text-accent">POST</span>
           </Link>
 
-          <nav className="hidden md:flex items-center space-x-10 text-sm font-medium text-muted-foreground">
-            <Link to="/" className="hover:text-accent transition">
-              首页
-            </Link>
-            <a href="#" className="hover:text-accent transition">
-              分类
-            </a>
-            <a href="#" className="hover:text-accent transition">
-              关于
-            </a>
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-muted-foreground">
+            {navLinks.map((link) =>
+              link.isRoute ? (
+                <Link key={link.label} to={link.href as '/'} className="hover:text-accent transition-colors">
+                  {link.label}
+                </Link>
+              ) : (
+                <a key={link.label} href={link.href} className="hover:text-accent transition-colors">
+                  {link.label}
+                </a>
+              )
+            )}
           </nav>
 
-          <div className="flex items-center space-x-6">
-            <button className="p-2 text-muted-foreground hover:text-accent transition">
-              <Search className="w-5 h-5" />
+          {/* Right actions */}
+          <div className="flex items-center space-x-2">
+            {/* Search */}
+            <button className="p-2 text-muted-foreground hover:text-accent transition-colors rounded-lg hover:bg-muted">
+              <Search className="w-4 h-4" />
             </button>
 
-            {isLoading ? (
-              <div className="w-24 h-10 bg-muted animate-pulse rounded-full" />
-            ) : user ? (
-              <div className="flex items-center space-x-4">
-                {/* 管理员显示管理和写文章按钮 */}
-                {isAdmin && (
-                  <>
-                    <Link
-                      to="/admin"
-                      className="hidden md:block px-4 py-2 text-sm text-muted-foreground hover:text-accent transition"
-                    >
-                      管理
-                    </Link>
-                    <Link
-                      to="/editor"
-                      className="hidden md:block px-5 py-2.5 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-90 transition"
-                    >
-                      写文章
-                    </Link>
-                  </>
-                )}
-
-                {/* 用户头像和菜单 */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2"
-                  >
-                    {user.image ? (
-                      <img
-                        src={user.image}
-                        alt={user.name || 'User'}
-                        className="w-9 h-9 rounded-full border-2 border-border"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
-                        <User className="w-4 h-4" />
-                      </div>
-                    )}
-                  </button>
-
-                  {showUserMenu && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setShowUserMenu(false)}
-                      />
-                      <div className="absolute right-0 top-full mt-2 w-48 bg-background border border-border rounded-xl shadow-lg z-20 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-border">
-                          <p className="font-medium text-foreground truncate">
-                            {user.name}
-                          </p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {user.email}
-                          </p>
-                          {isAdmin && (
-                            <span className="inline-block mt-1 px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full">
-                              管理员
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={handleLogout}
-                          className="w-full px-4 py-3 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition flex items-center space-x-2"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span>退出登录</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
+            {/* Dark mode toggle */}
+            {mounted && (
               <button
-                onClick={() => setIsLoginModalOpen(true)}
-                className="hidden md:block px-5 py-2.5 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-90 transition"
+                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                className="p-2 text-muted-foreground hover:text-accent transition-colors rounded-lg hover:bg-muted"
+                aria-label="切换深色模式"
               >
-                登录
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
             )}
+
+            {/* Auth area — desktop only */}
+            <div className="hidden md:flex items-center space-x-3 ml-1">
+              {isLoading ? (
+                <div className="w-20 h-8 bg-muted animate-pulse rounded-full" />
+              ) : user ? (
+                <div className="flex items-center space-x-3">
+                  {isAdmin && (
+                    <>
+                      <Link
+                        to="/admin"
+                        className="px-3 py-1.5 text-sm text-muted-foreground hover:text-accent transition-colors"
+                      >
+                        管理
+                      </Link>
+                      <Link
+                        to="/editor"
+                        className="px-4 py-1.5 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-85 transition-opacity"
+                      >
+                        写文章
+                      </Link>
+                    </>
+                  )}
+
+                  {/* User avatar dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowUserMenu(!showUserMenu)}
+                      className="flex items-center"
+                    >
+                      {user.image ? (
+                        <img
+                          src={user.image}
+                          alt={user.name || 'User'}
+                          className="w-8 h-8 rounded-full border-2 border-border object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                          <User className="w-4 h-4" />
+                        </div>
+                      )}
+                    </button>
+
+                    {showUserMenu && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowUserMenu(false)}
+                        />
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-popover border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+                          <div className="px-4 py-3 border-b border-border">
+                            <p className="font-semibold text-foreground truncate text-sm">
+                              {user.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">
+                              {user.email}
+                            </p>
+                            {isAdmin && (
+                              <span className="inline-block mt-1.5 px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full font-medium">
+                                管理员
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={handleLogout}
+                            className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center gap-2"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            退出登录
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="px-4 py-1.5 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-85 transition-opacity"
+                >
+                  登录
+                </button>
+              )}
+            </div>
+
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-muted-foreground hover:text-accent transition-colors rounded-lg hover:bg-muted"
+              aria-label="打开菜单"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
+            <nav className="max-w-6xl mx-auto px-6 py-4 flex flex-col space-y-1">
+              {navLinks.map((link) =>
+                link.isRoute ? (
+                  <Link
+                    key={link.label}
+                    to={link.href as '/'}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-accent hover:bg-muted rounded-lg transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-accent hover:bg-muted rounded-lg transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                )
+              )}
+
+              {/* Mobile auth */}
+              <div className="pt-3 mt-1 border-t border-border">
+                {isLoading ? (
+                  <div className="w-24 h-8 bg-muted animate-pulse rounded-full" />
+                ) : user ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3 px-3 py-2">
+                      {user.image ? (
+                        <img src={user.image} alt={user.name || ''} className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      <span className="text-sm font-medium text-foreground">{user.name}</span>
+                      {isAdmin && (
+                        <span className="px-1.5 py-0.5 bg-accent/10 text-accent text-xs rounded-full">管理员</span>
+                      )}
+                    </div>
+                    {isAdmin && (
+                      <>
+                        <Link
+                          to="/admin"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-accent hover:bg-muted rounded-lg transition-colors"
+                        >
+                          管理后台
+                        </Link>
+                        <Link
+                          to="/editor"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-accent hover:bg-muted rounded-lg transition-colors"
+                        >
+                          写文章
+                        </Link>
+                      </>
+                    )}
+                    <button
+                      onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      退出登录
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setIsLoginModalOpen(true); setMobileMenuOpen(false) }}
+                    className="w-full px-4 py-2 bg-foreground text-background text-sm rounded-full font-medium hover:opacity-85 transition-opacity"
+                  >
+                    登录
+                  </button>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       <LoginModal
